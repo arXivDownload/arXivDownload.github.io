@@ -59,7 +59,7 @@
             display: flex;
             align-items: center;
             justify-content: center;
-            margin-top: 0px;
+            margin-top: 10px;
             display: none;
         }
         .arxiv-id-title-box {
@@ -188,7 +188,7 @@
 
         if (match && match[2]) {
             const arxivId = match[2];
-            resultDiv.textContent = `Extracted arXiv ID: ${arxivId}`;
+            resultDiv.textContent = `arXiv ID: ${arxivId}`;
 
             // Check if the title is already cached
             if (arxivTitleCache[arxivId]) {
@@ -269,7 +269,7 @@
     }
 
     async function downloadPDF() {
-        const arxivId = resultDiv.textContent.replace("Extracted arXiv ID: ", "");
+        const arxivId = resultDiv.textContent.replace("arXiv ID: ", "");
         const title = titleDiv.textContent.replace("Title: ", "");
         if (arxivId && title) {
             const pdfUrl = `https://arxiv.org/pdf/${arxivId}.pdf`;
@@ -296,7 +296,7 @@
     }
 
     async function downloadSourceCode() {
-        const arxivId = resultDiv.textContent.replace("Extracted arXiv ID: ", "");
+        const arxivId = resultDiv.textContent.replace("arXiv ID: ", "");
         const title = titleDiv.textContent.replace("Title: ", "");
         if (arxivId && title) {
             const sourceCodeUrl = `https://arxiv.org/src/${arxivId}`;
