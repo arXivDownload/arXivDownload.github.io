@@ -79,13 +79,40 @@
             border: 1px solid #ccc;
             border-left: none;
         }
-        .pdf-preview {
+        /* .pdf-preview {
             margin-top: 20px;
-            /* width: 100%;
-            height: 500px; */
+            width: 1000px;
+            height: 1000px;
             border: 1px solid #ccc;
             border-radius: 4px;
-        }
+        } */
+        /* Add vertical spacing between buttons and iframe */
+.pdf-preview {
+    margin-top: 20px; /* Add vertical spacing */
+    width: 100%; /* Make iframe responsive */
+    height: 1000px; /* Set a reasonable height */
+    border: 1px solid #ccc;
+    border-radius: 4px;
+    overflow: auto; /* Enable scrolling if content overflows */
+}
+
+/* Optional: Add a wrapper for better layout control */
+.pdf-preview-container {
+    width: 200%
+    display: flex;
+    justify-content: center; /* Horizontally center */
+    align-items: center;    /* Vertically center (optional) */
+    margin-top: 20px;
+}
+        /* .pdf-preview-container {
+        display: flex;
+        justify-content: center; /* Horizontally center */
+        /* align-items: center;    /* Vertically center (optional) */
+        /* margin-top: 20px; 
+        width: 1000px;
+            height: 1000px;
+            border: 1px solid #ccc;
+            border-radius: 4px;      Add spacing if needed */
         .button-container {
             display: flex;
             justify-content: center;
@@ -128,9 +155,12 @@
     </div>
     <div class="copy-notification" id="copyNotification">Title copied to clipboard!</div>
     <div class="button-container" id="buttonContainer">
-        <button id="downloadButton">Download</button>
-        <button id="sourceCodeButton">Source Code</button>
+        <button id="downloadButton">Download PDF</button>
+        <button id="sourceCodeButton">Download Source Code</button>
+        <button id="htmlButton">HTML View</button> <!-- New Button -->
     </div>
+    <!-- <iframe class="pdf-preview" id="pdfPreview" style="display: none;"></iframe> -->
+    <!-- Add a wrapper div around the iframe -->
     <iframe class="pdf-preview" id="pdfPreview" style="display: none;"></iframe>
 </div>
 
@@ -161,7 +191,7 @@
         pdfPreview.src = ''; // Clear the iframe src
         pdfPreview.style.display = 'none'; // Hide the iframe
 
-        debounceTimeout = setTimeout(extractArxivId, 500); // Wait 500ms after typing stops
+        debounceTimeout = setTimeout(extractArxivId, 0); // Wait 0ms after typing stops
     });
 
     // Event listeners
@@ -169,6 +199,7 @@
     copyButton.addEventListener('click', copyTitle);
     downloadButton.addEventListener('click', downloadPDF);
     sourceCodeButton.addEventListener('click', downloadSourceCode);
+    htmlButton.addEventListener('click', openHtmlView);
 
     async function extractArxivId() {
         const input = searchBox.value.trim(); // Trim whitespace
@@ -182,55 +213,57 @@
             buttonContainer.style.display = 'none';
             return; // Exit the function early
         }
+        // Regular expression to match arXiv URLs with or without https://
+// const regex = /(https:\/\/|)arxiv\.org\/(abs|pdf)\/(\d+\.\d+)(\/)?/;
+const regex = /(https:\/\/|)arxiv\.org\/(abs|pdf|html)\/([a-z\-]+\/\d{7}|\d+\.\d+)(\/)?/;
+const match = input.match(regex);
 
-        const regex = /https:\/\/arxiv\.org\/(abs|pdf)\/(\d+\.\d+)(\/)?/;
-        const match = input.match(regex);
+if (match && match[3]) {
+    const arxivId = match[3];
+    resultDiv.textContent = `arXiv ID: ${arxivId}`;
 
-        if (match && match[2]) {
-            const arxivId = match[2];
-            resultDiv.textContent = `arXiv ID: ${arxivId}`;
+    // Check if the title is already cached
+    if (arxivTitleCache[arxivId]) {
+        displayTitle(arxivId, arxivTitleCache[arxivId]);
+        return;
+    }
 
-            // Check if the title is already cached
-            if (arxivTitleCache[arxivId]) {
-                displayTitle(arxivId, arxivTitleCache[arxivId]);
-                return;
-            }
+    try {
+        const response = await fetch(`https://export.arxiv.org/api/query?id_list=${arxivId}`);
+        const text = await response.text();
+        const parser = new DOMParser();
+        const xmlDoc = parser.parseFromString(text, "text/xml");
+        const entry = xmlDoc.getElementsByTagName("entry")[0];
 
-            try {
-                const response = await fetch(`https://export.arxiv.org/api/query?id_list=${arxivId}`);
-                const text = await response.text();
-                const parser = new DOMParser();
-                const xmlDoc = parser.parseFromString(text, "text/xml");
-                const entry = xmlDoc.getElementsByTagName("entry")[0];
-
-                if (entry) {
-                    const title = entry.getElementsByTagName("title")[0].textContent.trim();
-                    // Cache the title
-                    arxivTitleCache[arxivId] = title;
-                    displayTitle(arxivId, title);
-                } else {
-                    titleDiv.textContent = "Title not found in the response.";
-                    arxivIdTitleContainer.style.display = 'none';
-                    buttonContainer.style.display = 'none';
-                }
-
-                // Load PDF preview only if a valid arXiv ID is found
-                const pdfUrl = `https://arxiv.org/pdf/${arxivId}`;
-                pdfPreview.src = pdfUrl;
-                pdfPreview.style.display = 'block';
-            } catch (error) {
-                titleDiv.textContent = "Failed to fetch the title. Please try again.";
-                arxivIdTitleContainer.style.display = 'none';
-                buttonContainer.style.display = 'none';
-                console.error(error);
-            }
+        if (entry) {
+            const title = entry.getElementsByTagName("title")[0].textContent.trim();
+            // Cache the title
+            arxivTitleCache[arxivId] = title;
+            displayTitle(arxivId, title);
         } else {
-            resultDiv.textContent = 'Invalid arXiv URL. Please enter a valid URL.';
-            titleDiv.textContent = '';
+            titleDiv.textContent = "Title not found in the response.";
             arxivIdTitleContainer.style.display = 'none';
-            pdfPreview.style.display = 'none';
             buttonContainer.style.display = 'none';
         }
+
+        // Load PDF preview only if a valid arXiv ID is found
+        const pdfUrl = `https://arxiv.org/pdf/${arxivId}`;
+        pdfPreview.src = pdfUrl;
+        pdfPreview.style.display = 'block';
+    } catch (error) {
+        titleDiv.textContent = "Failed to fetch the title. Please try again.";
+        arxivIdTitleContainer.style.display = 'none';
+        buttonContainer.style.display = 'none';
+        console.error(error);
+    }
+} else {
+    resultDiv.textContent = 'Invalid arXiv URL. Please enter a valid URL.';
+    titleDiv.textContent = '';
+    arxivIdTitleContainer.style.display = 'none';
+    pdfPreview.style.display = 'none';
+    buttonContainer.style.display = 'none';
+}
+
     }
 
     function displayTitle(arxivId, title) {
@@ -272,7 +305,7 @@
         const arxivId = resultDiv.textContent.replace("arXiv ID: ", "");
         const title = titleDiv.textContent.replace("Title: ", "");
         if (arxivId && title) {
-            const pdfUrl = `https://arxiv.org/pdf/${arxivId}.pdf`;
+            const pdfUrl = `https://arxiv.org/pdf/${arxivId}`;
 
             try {
                 const response = await fetch(pdfUrl);
@@ -321,7 +354,16 @@
             alert("Please extract a valid arXiv ID and title first.");
         }
     }
-</script>
 
+    function openHtmlView() {
+    const arxivId = resultDiv.textContent.replace("arXiv ID: ", "");
+    if (arxivId) {
+        const htmlUrl = `https://arxiv.org/html/${arxivId}`;
+        window.open(htmlUrl, '_blank');
+    } else {
+        alert("Please extract a valid arXiv ID first.");
+    }
+}
+</script>
 </body>
 </html>
